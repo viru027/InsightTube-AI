@@ -1,8 +1,6 @@
 # 🎥 InsightTube AI
 
-<p align="center">
-  <img src="assets/banner.png" alt="InsightTube AI Banner" width="100%">
-</p>
+
 
 <p align="center">
 
