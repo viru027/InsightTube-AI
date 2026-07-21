@@ -1,6 +1,9 @@
 streamlit==1.46.1
 
+google-generativeai
+
 openai-whisper
+
 torch
 torchaudio
 torchvision
@@ -13,30 +16,20 @@ chromadb
 
 sentence-transformers
 
-yt-dlp
+yt-dlp>=2025.7.21
 
 ffmpeg-python
 
 python-dotenv
 
 pandas
-
 numpy
 
-mistralai
-
-sarvamai
-
 tiktoken
-
 pydantic
-
 requests
-
 rich
-
 tqdm
-
 plotly
 
 youtube-transcript-api
