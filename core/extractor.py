@@ -69,10 +69,8 @@ class VideoExtractor:
             }
 
         except Exception as e:
-
-            print("Transcript Error:", e)
-
-            return None
+            print("Transcript Error:", repr(e))
+            raise
 
     # --------------------------------------------------------
     # Download Audio (Whisper Fallback)
