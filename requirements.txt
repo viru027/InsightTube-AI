@@ -1,42 +1,63 @@
-streamlit==1.46.1
+# ==========================================
+# Streamlit
+# ==========================================
+streamlit>=1.45.0
 
-openai-whisper
-torch
-torchaudio
-torchvision
+# ==========================================
+# Google Gemini
+# ==========================================
+google-genai>=1.30.0
 
-langchain
-langchain-community
-langchain-core
+# ==========================================
+# YouTube
+# ==========================================
+yt-dlp>=2025.7.21
+youtube-transcript-api>=1.2.2
 
-chromadb
+# ==========================================
+# Whisper
+# ==========================================
+openai-whisper>=20250625
+torch>=2.7.0
+torchaudio>=2.7.0
 
-sentence-transformers
+# ==========================================
+# Audio Processing
+# ==========================================
+ffmpeg-python>=0.2.0
 
-yt-dlp
+# ==========================================
+# Vector Database
+# ==========================================
+chromadb>=1.0.15
 
-ffmpeg-python
+# ==========================================
+# Embeddings
+# ==========================================
+sentence-transformers>=5.0.0
 
-python-dotenv
+# ==========================================
+# LangChain
+# ==========================================
+langchain>=0.3.27
+langchain-text-splitters>=0.3.9
 
-pandas
+# ==========================================
+# Scientific Computing
+# ==========================================
+numpy>=2.2.0
 
-numpy
+# ==========================================
+# Environment Variables
+# ==========================================
+python-dotenv>=1.1.1
 
-mistralai
+# ==========================================
+# HTTP Requests
+# ==========================================
+requests>=2.32.4
 
-sarvamai
-
-tiktoken
-
-pydantic
-
-requests
-
-rich
-
-tqdm
-
-plotly
-
-youtube-transcript-api
+# ==========================================
+# Optional (Better Logging)
+# ==========================================
+rich>=14.1.0

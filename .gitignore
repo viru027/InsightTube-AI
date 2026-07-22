@@ -1,44 +1,23 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.so
-*.egg-info/
-
-# Virtual Environment
 venv/
-env/
-.venv/
+__pycache__/
+*.pyc
 
-# Environment Variables
 .env
 
-# Streamlit
 .streamlit/secrets.toml
 
-# VS Code
-.vscode/
+temp/*
+!temp/.gitkeep
 
-# PyCharm
-.idea/
+database/chroma/*
+!database/chroma/.gitkeep
 
-# macOS
-.DS_Store
-
-# Windows
-Thumbs.db
-
-# Chroma Database
-database/chroma/
-
-# Downloaded Audio/Videos
-downloads/
-temp/
-audio/
-
-# Whisper Cache
-.cache/
-
-# Logs
+*.mp3
+*.wav
+*.m4a
+*.webm
 *.log
+
+.DS_Store
+.vscode/
+.idea/

@@ -1,8 +1,17 @@
 import streamlit as st
-
+import core.extractor
 from core.extractor import VideoExtractor
 from core.transcriber import Transcriber
 from core.rag_engine import RAGEngine
+from core.chat_engine import ChatEngine
+
+
+st.write("Extractor file:", core.extractor.__file__)
+st.write("Has get_transcript:", hasattr(VideoExtractor, "get_transcript"))
+
+# ==========================================
+# PAGE CONFIG
+# ==========================================
 
 st.set_page_config(
     page_title="InsightTube AI",
@@ -13,37 +22,59 @@ st.set_page_config(
 st.title("🎥 InsightTube AI")
 st.caption("AI-Powered Video Intelligence Platform")
 
-# -----------------------------
-# Session State
-# -----------------------------
-if "video" not in st.session_state:
-    st.session_state.video = None
+# ==========================================
+# CACHE EXPENSIVE OBJECTS
+# ==========================================
 
-if "video_id" not in st.session_state:
-    st.session_state.video_id = None
+@st.cache_resource
+def get_extractor():
+    return VideoExtractor()
 
-if "transcript" not in st.session_state:
-    st.session_state.transcript = None
 
-if "segments" not in st.session_state:
-    st.session_state.segments = None
+@st.cache_resource
+def get_transcriber():
+    return Transcriber()
 
-# -----------------------------
-# Sidebar
-# -----------------------------
-st.sidebar.title("Navigation")
+
+@st.cache_resource
+def get_rag():
+    return RAGEngine()
+
+
+@st.cache_resource
+def get_chat():
+    return ChatEngine()
+
+
+# ==========================================
+# SESSION STATE
+# ==========================================
+
+defaults = {
+    "video": None,
+    "video_id": None,
+    "transcript": None,
+    "segments": None,
+    "messages": [],
+}
+
+for key, value in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+# ==========================================
+# SIDEBAR
+# ==========================================
 
 page = st.sidebar.radio(
-    "",
-    [
-        "Analyze Video",
-        "AI Chat"
-    ]
+    "Navigation",
+    ["Analyze Video", "AI Chat"],
+    label_visibility="collapsed",
 )
 
-# ==============================
-# Analyze Video
-# ==============================
+# ==========================================
+# ANALYZE VIDEO
+# ==========================================
 
 if page == "Analyze Video":
 
@@ -56,210 +87,318 @@ if page == "Analyze Video":
 
     if st.button("Analyze Video", use_container_width=True):
 
-        if not url:
+        if not url.strip():
             st.warning("Please enter a YouTube URL.")
             st.stop()
 
-        with st.spinner("Downloading video audio..."):
+        extractor = VideoExtractor()
 
-            extractor = VideoExtractor()
-
-            data = extractor.process(url)
-
-        with st.spinner("Transcribing using Whisper..."):
-
-            transcriber = Transcriber()
-
-            transcript_data = transcriber.transcribe(
-                data["audio_path"]
-            )
-
-        with st.spinner("Creating searchable knowledge base..."):
-
-            rag = RAGEngine()
+        st.write(type(extractor))
+        st.write(hasattr(extractor, "get_transcript"))
 
         try:
-            rag.index_video(
-            video_id=data["video"]["id"],
-            transcript=transcript_data["transcript"]
-        )
 
-        except ValueError as e:
-            st.warning(str(e))
-            st.stop()
+            # ------------------------------------
+            # STEP 1
+            # ------------------------------------
 
-        st.session_state.video = data["video"]
-        st.session_state.video_id = data["video"]["id"]
-        st.session_state.transcript = transcript_data["transcript"]
-        st.session_state.segments = transcript_data["segments"]
+            with st.spinner("Fetching video information..."):
+                video = extractor.get_info(url)
 
-        st.success("Video processed successfully!")
+            # ------------------------------------
+            # STEP 2
+            # ------------------------------------
+
+            transcript_data = None
+
+            with st.spinner("Checking YouTube captions..."):
+                transcript_data = extractor.get_transcript(
+                    video["id"]
+                )
+
+            # ------------------------------------
+            # STEP 3
+            # ------------------------------------
+
+            if transcript_data:
+
+                st.success("Official YouTube transcript found.")
+
+            else:
+
+                st.info(
+                    "Transcript unavailable.\n\nUsing Whisper AI..."
+                )
+
+                with st.spinner("Downloading audio..."):
+                    audio_path = extractor.download_audio(url)
+
+                with st.spinner("Transcribing audio..."):
+                    transcriber = get_transcriber()
+
+                    transcript_data = transcriber.transcribe(
+                        audio_path
+                    )
+
+            # ------------------------------------
+            # STEP 4
+            # ------------------------------------
+
+            with st.spinner("Building AI knowledge base..."):
+
+                rag = get_rag()
+
+                rag.index_video(
+                    video_id=video["id"],
+                    transcript=transcript_data["transcript"]
+                )
+
+            # ------------------------------------
+            # SAVE
+            # ------------------------------------
+
+            st.session_state.video = video
+            st.session_state.video_id = video["id"]
+            st.session_state.transcript = transcript_data["transcript"]
+            st.session_state.segments = transcript_data["segments"]
+            st.session_state.messages = []
+
+            st.success("Video processed successfully!")
+
+        except Exception as e:
+
+            st.error(f"❌ {e}")
+
+    # ------------------------------------
+    # SHOW RESULTS
+    # ------------------------------------
 
     if st.session_state.video:
 
         video = st.session_state.video
 
-        st.image(video["thumbnail"], width=400)
+        st.image(video["thumbnail"], use_container_width=True)
 
         st.subheader(video["title"])
 
         col1, col2 = st.columns(2)
 
         with col1:
+
             st.write("**Channel:**", video["channel"])
             st.write("**Duration:**", video["duration"], "seconds")
 
         with col2:
-            st.write("**Views:**", f"{video['view_count']:,}")
-            st.write("**Upload Date:**", video["upload_date"])
+
+            st.write(
+                "**Views:**",
+                f"{video['view_count']:,}"
+                if video["view_count"] else "N/A"
+            )
+
+            st.write(
+                "**Upload Date:**",
+                video["upload_date"]
+            )
 
         with st.expander("Transcript"):
+
             st.write(st.session_state.transcript)
 
-# ==============================
-# # ==============================
-# AI Chat
-# ==============================
+# ==========================================
+# AI CHAT
+# ==========================================
 
-elif page == "AI Chat":
+else:
 
     st.subheader("💬 Chat with Video")
 
     if st.session_state.video is None:
-        st.warning("Please analyze a YouTube video first.")
+
+        st.warning("Analyze a video first.")
         st.stop()
 
-    from core.chat_engine import ChatEngine
-
-    rag = RAGEngine()
-    chat = ChatEngine()
-
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    # -----------------------------
-    # AI Learning Modes
-    # -----------------------------
-
-    st.markdown("### 🧠 AI Learning Mode")
+    rag = get_rag()
+    chat = get_chat()
 
     ai_mode = st.selectbox(
-        "Choose Mode",
+
+        "Learning Mode",
+
         [
+
             "Ask Questions",
+
             "Video Summary",
+
             "Explain Simply",
+
             "Project Ideas",
+
             "Interview Questions",
+
             "Quiz Generator",
+
             "Learning Roadmap",
+
             "Coding Challenges",
+
             "Resume Project Builder",
-            "Research Topics"
+
+            "Research Topics",
+
         ]
+
     )
 
-    mode_description = {
-        "Ask Questions": "Ask anything about the video.",
-        "Video Summary": "Generate a concise summary.",
-        "Explain Simply": "Explain concepts in beginner-friendly language.",
-        "Project Ideas": "Generate practical project ideas.",
-        "Interview Questions": "Generate interview questions.",
-        "Quiz Generator": "Generate MCQs with answers.",
-        "Learning Roadmap": "Create a learning roadmap.",
-        "Coding Challenges": "Generate coding exercises.",
-        "Resume Project Builder": "Generate a resume-worthy project.",
-        "Research Topics": "Suggest research ideas."
+    descriptions = {
+
+        "Ask Questions":
+            "Ask anything from the video.",
+
+        "Video Summary":
+            "Generate a concise summary.",
+
+        "Explain Simply":
+            "Explain for beginners.",
+
+        "Project Ideas":
+            "Generate practical projects.",
+
+        "Interview Questions":
+            "Interview preparation.",
+
+        "Quiz Generator":
+            "Generate MCQs.",
+
+        "Learning Roadmap":
+            "Learning roadmap.",
+
+        "Coding Challenges":
+            "Practice coding.",
+
+        "Resume Project Builder":
+            "Resume-ready projects.",
+
+        "Research Topics":
+            "Generate research ideas."
+
     }
 
-    st.info(mode_description[ai_mode])
-
-    # -----------------------------
-    # Auto Prompt Generator
-    # -----------------------------
+    st.info(descriptions[ai_mode])
 
     auto_prompts = {
-        "Video Summary": "Summarize this video.",
-        "Explain Simply": "Explain this video in simple language.",
-        "Project Ideas": "Suggest projects related to this video.",
-        "Interview Questions": "Generate interview questions from this video.",
-        "Quiz Generator": "Generate 15 MCQs with answers from this video.",
-        "Learning Roadmap": "Create a roadmap to master this topic.",
-        "Coding Challenges": "Generate coding challenges based on this topic.",
-        "Resume Project Builder": "Create a resume-worthy project based on this video.",
-        "Research Topics": "Suggest research topics based on this video."
-    }
 
-    # -----------------------------
-    # Display previous messages
-    # -----------------------------
+        "Video Summary":
+            "Summarize this video.",
+
+        "Explain Simply":
+            "Explain this video simply.",
+
+        "Project Ideas":
+            "Suggest projects from this video.",
+
+        "Interview Questions":
+            "Generate interview questions.",
+
+        "Quiz Generator":
+            "Generate 15 MCQs with answers.",
+
+        "Learning Roadmap":
+            "Create a learning roadmap.",
+
+        "Coding Challenges":
+            "Generate coding challenges.",
+
+        "Resume Project Builder":
+            "Create a resume-worthy project.",
+
+        "Research Topics":
+            "Generate research ideas."
+
+    }
 
     for message in st.session_state.messages:
 
         with st.chat_message(message["role"]):
-            st.markdown(message["content"])
 
-    # -----------------------------
-    # Auto Generate Button
-    # -----------------------------
+            st.markdown(message["content"])
 
     auto_prompt = None
 
     if ai_mode != "Ask Questions":
 
-        if st.button(f"Generate {ai_mode}", use_container_width=True):
+        if st.button(
+            f"Generate {ai_mode}",
+            use_container_width=True
+        ):
+
             auto_prompt = auto_prompts[ai_mode]
 
-    # -----------------------------
-    # Manual Chat Input
-    # -----------------------------
-
-    prompt = st.chat_input("Ask anything about this video...")
+    prompt = st.chat_input(
+        "Ask anything about this video..."
+    )
 
     if auto_prompt:
-        prompt = auto_prompt
 
-    # -----------------------------
-    # Generate Response
-    # -----------------------------
+        prompt = auto_prompt
 
     if prompt:
 
         st.session_state.messages.append(
+
             {
+
                 "role": "user",
+
                 "content": prompt
+
             }
+
         )
 
         with st.chat_message("user"):
+
             st.markdown(prompt)
-
-        # Search Vector DB
-        results = rag.search(
-            st.session_state.video_id,
-            prompt
-        )
-
-        context = "\n\n".join(results["documents"][0])
 
         with st.chat_message("assistant"):
 
             with st.spinner("Thinking..."):
 
+                results = rag.search(
+
+                    st.session_state.video_id,
+
+                    prompt
+
+                )
+
+                documents = results.get("documents", [[]])
+
+                context = "\n\n".join(
+                    documents[0]
+                ) if documents else ""
+
                 answer = chat.generate_answer(
+
                     context=context,
+
                     question=prompt,
+
                     mode=ai_mode
+
                 )
 
                 st.markdown(answer)
 
         st.session_state.messages.append(
-            {
-                "role": "assistant",
-                "content": answer
-            }
-        )
 
-# ==============================
+            {
+
+                "role": "assistant",
+
+                "content": answer
+
+            }
+
+        )
