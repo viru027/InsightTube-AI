@@ -189,13 +189,7 @@ streamlit run app.py
 
 ---
 
-# 📸 Screenshots
 
-### Home Page
-
-> Add screenshot here
-
----
 
 ### AI Chat
 
